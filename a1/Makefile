@@ -3,5 +3,5 @@ LIBS=
 CC=gcc
 
 all: 
-	$(CC) $(CFLAGS) hello.c -o hello.out $(LIBS)
+	$(CC) $(CFLAGS) sh360.c -o sh360.out $(LIBS)
 
