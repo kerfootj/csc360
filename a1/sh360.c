@@ -79,8 +79,7 @@ int main(int argc, char *argv[]) {
 	int i;
 	int line_len;
 	int num_tokens;
-
-	char delm[] = "->"; 
+	int cmd;
 	
 	for(;;) {
 
@@ -97,18 +96,34 @@ int main(int argc, char *argv[]) {
 			exit(0);		
 		}
 		
-		if(starts_with(input, "PP ")) {
-			PP(input);		
-		}else if(starts_with(input, "OR ")) {
-			OR();
+		if(starts_with(input, "PP ") && strlen(input) > 3) {
+			cmd = 3;
+			memmove(input, input+3, strlen(input)-2);	
+		}else if(starts_with(input, "OR ") && strlen(input) > 3) {
+			cmd = 2;
+			memmove(input, input+3, strlen(input)-2);	
+		}else {
+			printf("Error: %s - Command not recognized.\n", input);				
 		}
-		
-		// Tokenize string
-		while(t != NULL && num_tokens < MAX_NUM_TOKENS) {
-			token[num_tokens] = t;
-			num_tokens++;
-			t = strtok(NULL, delm);
-		}// End while
+	
+		if(cmd == 2 || cmd == 3) {
+			
+			char delm[] = ">";
+
+			num_tokens = 0;
+		    t = strtok(input, delm);
+ 
+			// Tokenize string
+			while(t != NULL && num_tokens < MAX_NUM_TOKENS) {
+				token[num_tokens] = t;
+				num_tokens++;
+				t = strtok(NULL, delm);
+			}// End while
+			
+			for (i = 0; i < num_tokens; i++) {
+        		printf("%d: %s\n", i, token[i]);
+    		}// End for
+		}// End if
 	}// End For	
 }// End main
 
