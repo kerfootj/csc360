@@ -22,7 +22,7 @@
 
 /******************************* CONSTANTS *******************************/
 
-#define MAX_NUM_ARGS 10 // 7
+#define MAX_NUM_ARGS 7
 #define MAX_LINE_LENGTH 80
 #define MAX_PROMPT_LENGTH 10
 #define MAX_NUM_DIRS_IN_PATH 10
@@ -42,6 +42,8 @@ int read_input(char *input);
 
 int tokenize_string(char **token, char *cmd);
 int find_path(char *binary, char *fullpath);
+
+int exec_cmd(char *binary, char ** args, int num_tokens);
 
 /*************************** IMPLEMENTATION *****************************/
 
@@ -72,8 +74,40 @@ int read_config() {
 	return 1;
 }
 
-int find_path(char *binary, char *fullpath) {
-	return 1;
+int find_path(char *bin, char *fullpath) {
+	
+	// Check that bin is already full path
+
+	FILE *fp = fopen(bin, "r");
+	if(fp) {
+		memcpy(fullpath, bin, strlen(bin)+1);
+		fclose(fp);
+		return 1;
+	}
+	
+	struct stat file_stat;
+
+	char test[MAX_LINE_LENGTH];
+	int i;
+
+	for(i = 0; i < g_numDirs; i++) {
+	
+		test[0] = '\0';
+		strcat(test, g_dirs[i]);
+		strcat(test, "/");
+		strcat(test, bin);
+		strcat(test, "\0");
+
+		if(stat(test, &file_stat) == 0) {
+			if(file_stat.st_mode & S_IXOTH) {
+				memcpy(fullpath, test, strlen(test)+1);
+				return 1;	
+			}
+		}
+	}
+
+	memcpy(fullpath, "\0", 1);
+	return 0;
 }
 
 int tokenize_string(char **token, char *cmd) {
@@ -81,7 +115,7 @@ int tokenize_string(char **token, char *cmd) {
 	int num_tokens = 0;
 
 	t = strtok(cmd, " ");
-	while(t != NULL && num_tokens < MAX_NUM_ARGS) {
+	while(t != NULL && num_tokens < 30) {
 		token[num_tokens++] = t;
         t = strtok(NULL, " ");
 	}
@@ -121,9 +155,48 @@ int tokenize_string(char **token, char *cmd) {
 	return num_tokens;
 }
 
-int piping(char *cmd) {
+int run_cmd(char *cmd){
 	
 	char *token[MAX_NUM_ARGS];
+	int num_tokens = tokenize_string(token, cmd);
+	
+	char to_run[MAX_LINE_LENGTH];
+	to_run[0] = '\0';
+
+	int found = find_path(token[0], to_run);
+
+	if(found) {
+		exec_cmd(to_run, token, num_tokens);
+		return 1;
+	} else {
+		fprintf(stderr, "Invalid command.\n");
+		return 0;
+	}
+
+	return 1;
+}
+
+int exec_cmd(char *binary, char ** args, int num_tokens) {
+	char *envp[] = { 0 };
+	int pid;
+
+	if((pid = fork()) == 0) {
+		args[0] = binary;
+		args[num_tokens] = 0;
+
+		if(execve(args[0], args, envp) == -1) {
+			fprintf(stderr, "Error: execve failed.\n");
+			exit(0);
+		}
+	}
+	while (wait(&pid) > 0);
+
+	return 1;
+}
+
+int piping(char *cmd) {
+	
+	char *token[27];
 	int num_tokens = tokenize_string(token, cmd);
 
 	int delim_1 = -1;
@@ -139,14 +212,15 @@ int piping(char *cmd) {
 		}
 		i++;
 	}
-	
 	int multi = (delim_2 != -1) ? 2 : 1;
+
+	printf("d1: %d d2: %d\n", delim_1, delim_2);
 
 	if(delim_1 == -1) {
 		fprintf(stderr, "PP missing '->'. Usage: PP <command> -> <command>\n");
 		return 0;
 	}
-	if(delim_1 == 2) {
+	if(delim_1 == 1) {
 		fprintf(stderr, "PP missing <command> before '->'. Usage: PP <command> -> <command>\n");
 		return 0;
 	}
@@ -158,39 +232,129 @@ int piping(char *cmd) {
 		fprintf(stderr, "PP missing <command> between '->'. Usage: PP <command> -> <command> -> <command>\n");
 		return 0;
 	}
-
+	
 	if(multi == 1)
 		delim_2 = num_tokens;
 	
 	int j;
 	
-	char *token_1[delim_1-1];
+	printf("multi: %d delim2: %d delim1: %d\n", multi, delim_2, delim_1);
+	
+	int s1 = (delim_1-1 < MAX_NUM_ARGS+1) ? delim_1-1 : MAX_NUM_ARGS+1;
+	char *token_1[s1+1];
 	for(j = 1; j < delim_1; j++) {
 		token_1[j-1] = token[j];
 	}
-	
-	char *token_2[delim_2-delim_1];
+	token_1[j-1] = 0;
+
+	int s2 = (delim_2-delim_1-1 < MAX_NUM_ARGS+1) ? delim_2-delim_1-1 : MAX_NUM_ARGS+1;
+	char *token_2[s2+1];
 	i = 0;
 	for(j = delim_1+1; j < delim_2; j++)
 		token_2[i++] = token[j];
+	token[j-1] = 0;
 	
-	char *token_3[num_tokens-delim_2];
+	/*
+	char *token_3[(multi==2) ? num_tokens-delim_2+1 : 1];
 	i = 0;
 	if(multi == 2){
 		for(j = delim_2+1; j < num_tokens; j++)
 			token_3[i++] = token[j];
+	}else
+		token_3[0] = NULL;
+	*/
+/*
+	int z = 0;
+	printf("token_1[%lu]: ",*(&token_1+1)-token_1);
+	while(z < *(&token_1+1)-token_1){
+		printf("%s ", token_1[z]);
+		z++;
 	}
+	printf("\n");
 	
+	z = 0;
+	printf("token_2[%lu]: ",*(&token_2+1)-token_2);
+	while(z < *(&token_2+1)-token_2){
+		printf("%s ", token_2[z]);
+		z++;
+	}
+	printf("\n");
+*/
+	/*
+	z = 0;
+	printf("token_3[%lu]: ",*(&token_3+1)-token_3);
+	while(z < *(&token_1+1)-token_1){
+		printf("%s ", token_3[z]);
+		z++;
+	}
+	printf("\n");
+	*/
+
 	char binary_1[MAX_LINE_LENGTH];
 	char binary_2[MAX_LINE_LENGTH];
-	char binary_3[MAX_LINE_LENGTH];
+	//char binary_3[MAX_LINE_LENGTH];
 
-	int find_path(token_1[0], binary_1);
-	int find_path(token_2[0], binary_2);
-	int find_path(token_3[0], binary_3);
-		
+	int found_1 = find_path(token_1[0], binary_1);
+	int found_2 = find_path(token_2[0], binary_2);
+	//find_path(token_3[0], binary_3);
+
+	printf("path1: %s\n", binary_1);
+	printf("path2: %s\n", binary_2);
 	
-	return 0;
+	if(!found_1){
+		fprintf(stderr, "Error: %s - Invalid Command\n", token_1[0]);
+		return 0;
+	}
+	if(!found_2) {
+		fprintf(stderr, "Error: %s - Invalid Command\n", token_2[0]);
+		return 0;
+	}
+
+	char *envp[] = { 0 };
+	int status;
+	int pid1, pid2;
+	int fd[2];
+
+	token_1[0] = binary_1;
+	token_2[0] = binary_2;
+
+	pipe(fd);
+
+	if((pid1 = fork()) == 0) {
+		dup2(fd[1], 1);
+		close(fd[0]);
+		
+		if(execve(token_1[0], token_1, envp) == -1) {
+			fprintf(stderr, "Error: execve on cmd 1 failed.\n");
+			exit(0);	
+		}
+	}
+
+	if((pid2 = fork()) == 0) {
+		dup2(fd[1], 1);
+        close(fd[0]);
+		
+		fprintf(stderr, "arg: %s\n", token_2[1]);
+
+		if(execve(token_2[0], token_2, envp) == -1) {
+			fprintf(stderr, "Error: execve on cmd 2 failed.\n");
+			exit(0);	
+		}
+	}
+	
+
+	close(fd[0]);
+    close(fd[1]);
+	
+	printf("1 waiting...");
+    waitpid(pid1, &status, 0);
+	printf("1 done.");
+
+	printf("2 waiting...");
+    waitpid(pid2, &status, 0); 
+	printf("2 done.");
+	
+	return 1;
 }
 
 int output_redirect(char *cmd) {
@@ -212,10 +376,12 @@ int main(int argc, char *argv[]) {
 
 		if(strcmp(input, "exit") == 0)
 			exit(0);
-		if(strncmp(input, "PP", 2) == 0)
+		else if(strncmp(input, "PP", 2) == 0)
 			piping(input);
-		if(strncmp(input, "OR", 2) == 0)
+		else if(strncmp(input, "OR", 2) == 0)
 			output_redirect(input);
+		else
+			run_cmd(input);
 	}
 	return 0;
 }
