@@ -11,13 +11,16 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdbool.h>
+#include <fcntl.h>
 
 #define MAX_INPUT_LINE 80
+#define INPUT_BUFFER 80
 #define MAX_NUM_TOKENS 27
 #define MAX_NUM_ARGS 7
 #define MAX_NUM_DIRECTORIES 10
 #define MAX_LEN_PATH 80
 #define MAX_LEN_PROMT 10
+
 
 void command_positions(int *arr, char **token, int len) {
 	int n = 1;	
@@ -38,6 +41,46 @@ void process_args(char *args[], char **token, int start, int end) {
 }
 
 bool validate_command(char **cmd) {
+
+	if(*cmd[strlen(*cmd) - 1] == '\n') {
+		*cmd[strlen(*cmd) - 1] = '\0';
+	}
+
+	struct stat file_stat;
+	
+	FILE *rc;
+	rc = fopen(".sh360rc", "r");
+
+	char filename[MAX_LEN_PATH];
+	int n = 0;
+
+	while(fgets(filename, sizeof filename, rc) != NULL) {
+		if(n > 0 && n <= MAX_NUM_DIRECTORIES) {
+			strtok(filename, "\n"); // Remove new line character
+			if(filename[strlen(filename)] != '/') {
+				strcat(filename, "/");
+			}
+			strcat(filename, *cmd);
+			
+			if(stat(filename, &file_stat) == 0){
+				if(file_stat.st_mode & S_IXOTH) {
+					*cmd = filename;
+					printf("cmd: %s\n", *cmd);
+					return true;				
+				}		
+			}
+			n++;
+		} else if(n > MAX_NUM_DIRECTORIES) {
+			break;
+		} else {
+			n++;		
+		}
+	}
+	printf("Command: %s not recognized\nCheck it's path is in '.sh360rc'\n", *cmd);
+	return false;
+}
+
+bool get_full_path(char **cmd) {
 
 	if(*cmd[strlen(*cmd) - 1] == '\n') {
 		*cmd[strlen(*cmd) - 1] = '\0';
@@ -183,7 +226,7 @@ void PP(char **token, int len) {
 		execve(cmd_tail[0], cmd_tail, envp);
 		printf("child (3): SHOULDN'T BE HERE.\n");
 	}
-
+	
 	close(fd[0]);
 	close(fd[1]);
 	if(multi) {
@@ -207,8 +250,63 @@ void PP(char **token, int len) {
 
 }// End PP
 
-void OR() {
-	printf("OR \n");
+void OR(char *token[]) {
+	
+	char *args[MAX_NUM_ARGS];
+    char *envp[] = { 0 };
+    
+	int pid, fd;
+    int status;
+	int delim = -1;
+	int i = 0;
+	
+
+	if ((pid = fork()) == 0) {
+       
+		while(token[i] != NULL) {
+			if(strcmp(token[i], "->") == 0) {
+				delim = -1;
+			}
+			i++;
+		}
+		
+		if(delim < 0) {
+			fprintf(stderr, "OR missing '->'. Usage: OR <command> -> <destination>\n");
+			return;
+		}
+		if(token[delim+1] == NULL) {
+			fprintf(stderr, "OR missing destination. Usage: OR <command> -> <destination>\n");
+			return;
+		}
+		if(i<4) {
+			fprintf(stderr, "OR missing command. Usage: OR <command> -> <destination>\n");
+			return;
+		}
+			
+		int j = 0;
+		for(i = 1; i < delim; ++i) {
+			args[j] = token[i];
+			j++;
+		}
+		
+        fd = open(token[i+1], O_CREAT|O_RDWR, S_IRUSR|S_IWUSR);
+        if (fd == -1) {
+            fprintf(stderr, "cannot open %s for writing\n", token[delim+1]);
+            exit(1);
+        }
+
+		get_full_path(&args[0]);
+		 fprintf(stderr, "Fullpath: %s\n", args[0]);
+
+        dup2(fd, 1);
+        dup2(fd, 2); 
+        execve(args[0], args, envp);
+        printf("child: SHOULDN'T BE HERE.\n");
+    }
+ 	printf("parent: waiting for child (3) to finish...\n");
+    waitpid(pid, &status, 0);
+	printf("parent: child is finished.\n");
+
 }// End OR
 
 int tokenize_string(char *s, char *arr[], char *delm, int num) {
@@ -241,10 +339,15 @@ int main(int argc, char *argv[]) {
 	char delim[] = " ";
 
 	int num_tokens;
+	int i = 0;
 
 	FILE *rc;
-	rc = fopen(".sh360rc", "r");
-	fscanf(rc, "%s", prompt);
+	if(!(rc = fopen(".sh360rc", "r"))) {
+		printf(".sh360rc not found");
+		exit(1);
+	}
+	
+	fscanf(rc, "%s", prompt);	
 	fclose(rc);
 	
 	for(;;) {
@@ -259,7 +362,7 @@ int main(int argc, char *argv[]) {
 		
 		// Exit
 		if(strcmp(input, "exit") == 0) {
-			exit(0);		
+			break;		
 		}
 
 		num_tokens = tokenize_string(input, token, delim, MAX_NUM_TOKENS);
@@ -268,12 +371,13 @@ int main(int argc, char *argv[]) {
 			PP(token, num_tokens);			
 		} 
 		else if(strcmp(token[0], "OR") == 0) {
-			OR(token, num_tokens);
+			OR(token);
 		}
 		else {
 			printf("Error: %s - Command not recognized\n", token[0]); 		
 		}
 	}// End For	
+	return(0);
 }// End main
 
 
