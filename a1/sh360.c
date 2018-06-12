@@ -38,7 +38,6 @@
 #define MAX_PROMPT_LENGTH 10
 #define MAX_NUM_DIRS_IN_PATH 10
 
-
 /*************************** GLOBAL VARIABLES *****************************/
 
 char g_prompt[MAX_PROMPT_LENGTH];
@@ -93,6 +92,7 @@ int read_config() {
 	return 1;
 }
 
+// Find full path for command if it exists 
 int find_path(char *bin, char *fullpath) {
 	
 	// Check that bin is already the full path
@@ -129,6 +129,7 @@ int find_path(char *bin, char *fullpath) {
 	return 0;
 }
 
+// Toekenize string by spaces 
 int tokenize_string(char **token, char *cmd) {
 	char *t;
 	int num_tokens = 0;
@@ -186,6 +187,7 @@ int exec_cmd(char *binary, char ** args, int num_tokens) {
 	return 1;
 }
 
+// Initial setup for implimenting piping
 int piping(char *cmd) {
 	
 	char *token[27];
@@ -232,7 +234,7 @@ int piping(char *cmd) {
 	return 0;
 }
 
-//exec_pipe_2(token, delim_1, num_tokens);
+// Pipe the first command into the second
 int exec_pipe_2(char **token, int delim, int num_tokens) {
 	
 	char *cmd_head[delim];
@@ -295,6 +297,7 @@ int exec_pipe_2(char **token, int delim, int num_tokens) {
     return 1;
 }
 
+// Pipe through the three commands
 int exec_pipe_3(char ** token, int delim1, int delim2, int num_tokens) {
 
 	char *cmd_head[delim1];
@@ -388,6 +391,7 @@ int exec_pipe_3(char ** token, int delim1, int delim2, int num_tokens) {
     return 1;
 }
 
+// Redirect command output to a file
 int output_redirect(char *cmd) {
 	
 	char *token[MAX_NUM_ARGS+2];
@@ -444,6 +448,7 @@ int output_redirect(char *cmd) {
 
 	return 1;
 }
+
 int main(int argc, char *argv[]) {
 
 	read_config();
