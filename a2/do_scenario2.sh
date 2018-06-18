@@ -37,10 +37,10 @@ tmux split-window -t $NAME:0.0 -v -p 25
 
 tmux send-keys -t $NAME:0.0 './myserver --meetup 2 --meetfirst' C-m
 sleep 1
-tmux send-keys -t $NAME:0.1 'curl "localhost:18300/?op=meetup&val=alice"' C-m
-tmux send-keys -t $NAME:0.2 'curl "localhost:18300/?op=meetup&val=carol"' C-m
-tmux send-keys -t $NAME:0.3 'curl "localhost:18300/?op=meetup&val=bob"' C-m
-tmux send-keys -t $NAME:0.4 'curl "localhost:18300/?op=meetup&val=ted"' C-m
+tmux send-keys -t $NAME:0.1 'curl "localhost:15134/?op=meetup&val=alice"' C-m
+tmux send-keys -t $NAME:0.2 'curl "localhost:15134/?op=meetup&val=carol"' C-m
+tmux send-keys -t $NAME:0.3 'curl "localhost:15134/?op=meetup&val=bob"' C-m
+tmux send-keys -t $NAME:0.4 'curl "localhost:15134/?op=meetup&val=ted"' C-m
 
 tmux attach -t $NAME
 
