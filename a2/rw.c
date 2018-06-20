@@ -8,6 +8,9 @@
 #include "rw.h"
 #include "resource.h"
 
+// Reference:
+// https://connex.csc.uvic.ca/access/content/group/3b0d6b23-22bc-4a1a-892c-cd3e67333ceb/Lectures/02_concurrency_DRAFT.pdf
+
 /*
  * Declarations for reader-writer shared variables -- plus concurrency-control
  * variables -- must START here.
