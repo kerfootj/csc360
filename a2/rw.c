@@ -27,6 +27,7 @@ int writers;
 int active_writers;
 
 void initialize_readers_writer() {
+   
     /*
      * Initialize the shared structures, including those used for
      * synchronization.
@@ -54,10 +55,10 @@ void rw_read(char *value, int len) {
     
     pthread_mutex_lock(&m);
 
+    // If writers then wait
     while (!(writers == 0)) {
 		pthread_cond_wait(&readersQ, &m);
 	}
-
 	readers++;
 
 	pthread_mutex_unlock(&m);
@@ -66,6 +67,7 @@ void rw_read(char *value, int len) {
 
 	pthread_mutex_lock(&m);
 
+	// If no readers remaining signal writers
 	if (--readers == 0) {
 		pthread_cond_signal(&writersQ);
 	}
@@ -76,10 +78,12 @@ void rw_write(char *value, int len) {
     
     pthread_mutex_lock(&m);
 
+    // Indicate wanting to write and wait if already reading or writing
     writers++;
    	while (!((readers == 0) && (active_writers == 0))) { 
    		pthread_cond_wait(&writersQ, &m);
    	}
+
    	active_writers++;
 
    	pthread_mutex_unlock(&m);
@@ -88,6 +92,7 @@ void rw_write(char *value, int len) {
 
    	pthread_mutex_lock(&m);
 
+   	// If writers waiting signal writer else brodcast readers
    	writers--;
    	active_writers--;
    	if (writers) {
