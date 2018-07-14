@@ -1,3 +1,6 @@
 *.out
 *.o
 a2/myserver
+a3/rrsim
+a3/simgen
+a3/testlist
