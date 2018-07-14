@@ -8,6 +8,11 @@
 
 taskval_t *event_list = NULL;
 
+void print_time(int time) {
+    printf("[%04d] ", time);
+}
+
+
 void print_task(taskval_t *t, void *arg) {
     printf("task %03d: %5d %3.2f %3.2f\n",
         t->id,
@@ -15,6 +20,25 @@ void print_task(taskval_t *t, void *arg) {
         t->cpu_request,
         t->cpu_used
     );  
+}
+
+
+void dispatch_task(int *time, int dlen) {
+    for (int i=0; i<dlen; i++) {
+        print_time(*time++);
+        printf("DISPATCHING\n");
+    }
+}
+
+
+int run_task(taskval_t *t, int *time, int qlen) {
+    int rem_time = t->cpu_request - t->cpu_used;
+    int run_time = (rem_time > qlen) ? qlen : rem_time;
+
+    for (int i=0; i<run_time; i++) {
+        print_time(time++);
+        print_task(t, NULL);
+    }
 }
 
 
@@ -27,7 +51,29 @@ void increment_count(taskval_t *t, void *arg) {
 
 void run_simulation(int qlen, int dlen) {
     taskval_t *ready_q = NULL;
+    taskval_t *incoming = NULL;
+    taskval_t *current = NULL;
+    
+    int status = 0;
+    int time = 0;
 
+    while (1) {
+        incoming = peek_front(event_list);
+        if (incoming != NULL) {
+            // Task arrived
+            if (incoming->arrival_time == time) {
+                ready_q = add_end(ready_q, incoming);
+                event_list = remove_front(event_list);
+            }
+        }
+
+        current = peek_front(ready_q);
+        if (current != NULL) {
+            dispatch_task(&time, dlen);
+
+        }
+        time++;
+    }
 }
 
 
@@ -60,8 +106,7 @@ int main(int argc, char *argv[]) {
 
 
     while(fgets(input_line, MAX_BUFFER_LEN, stdin)) {
-        sscanf(input_line, "%d %d %f", &task_num, &task_arrival,
-            &task_cpu);
+        sscanf(input_line, "%d %d %f", &task_num, &task_arrival, &task_cpu);
         temp_task = new_task();
         temp_task->id = task_num;
         temp_task->arrival_time = task_arrival;
