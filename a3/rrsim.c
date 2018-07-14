@@ -7,45 +7,70 @@
 #define MAX_BUFFER_LEN 80
 
 taskval_t *event_list = NULL;
+int time = 0;
 
-void print_time(int time) {
+void increment_count(taskval_t *t, void *arg) {
+    int *ip;
+    ip = (int *)arg;
+    (*ip)++;
+}
+
+
+void print_time() {
     printf("[%04d] ", time);
+    time++;
 }
 
 
 void print_task(taskval_t *t, void *arg) {
-    printf("task %03d: %5d %3.2f %3.2f\n",
+    printf("id=%04d req=%3.2f used=%3.2f\n",
         t->id,
-        t->arrival_time,
         t->cpu_request,
         t->cpu_used
     );  
 }
 
 
-void dispatch_task(int *time, int dlen) {
+void print_task_complete(taskval_t *t, void *arg) {
+    printf("id=%04d EXIT w=%.2f ta= %.2f\n", 
+        t->id,
+        (t->finish_time - t->arrival_time) * 1.0,
+        t->finish_time - t->arrival_time - t->cpu_request // Fix me
+    );
+}
+
+
+void dispatch_task(int dlen) {
     for (int i=0; i<dlen; i++) {
-        print_time(*time++);
+        print_time();
         printf("DISPATCHING\n");
     }
 }
 
 
-int run_task(taskval_t *t, int *time, int qlen) {
-    int rem_time = t->cpu_request - t->cpu_used;
-    int run_time = (rem_time > qlen) ? qlen : rem_time;
+int run_task(taskval_t *t, int qlen) {
+    float rem_time = t->cpu_request - t->cpu_used;
+    float run_time = (rem_time > qlen) ? qlen : rem_time;
+    run_time = (run_time < 1) ? 1 : run_time;
+
+    int complete = 0;
 
     for (int i=0; i<run_time; i++) {
-        print_time(time++);
-        print_task(t, NULL);
+         t->cpu_used = t->cpu_used +1;
+        print_time();
+       
+        if (t->cpu_used >= t->cpu_request) {
+
+            t->cpu_used = t->cpu_request;
+            t->finish_time = time -1;
+            print_task_complete(t, NULL);
+            complete = 1;
+
+        } else {
+            print_task(t, NULL);
+        }
     }
-}
-
-
-void increment_count(taskval_t *t, void *arg) {
-    int *ip;
-    ip = (int *)arg;
-    (*ip)++;
+    return complete;
 }
 
 
@@ -55,24 +80,43 @@ void run_simulation(int qlen, int dlen) {
     taskval_t *current = NULL;
     
     int status = 0;
-    int time = 0;
 
     while (1) {
+
+        if (peek_front(event_list) == NULL && peek_front(ready_q) == NULL) {
+            break;
+        }
+
         incoming = peek_front(event_list);
+
         if (incoming != NULL) {
             // Task arrived
-            if (incoming->arrival_time == time) {
+            if (incoming->arrival_time >= time) {
                 ready_q = add_end(ready_q, incoming);
                 event_list = remove_front(event_list);
             }
+        } else {
+            printf("EVENTS CLEARED\n");
         }
-
+       
         current = peek_front(ready_q);
+
         if (current != NULL) {
-            dispatch_task(&time, dlen);
+            dispatch_task(dlen);
+            if (run_task(current, qlen)) {
+                ready_q = remove_front(ready_q);
+                end_task(current);
+            }
+            status = 1;
+        }
+
+        if (status == 0 ) {
+            print_time();
+            printf("IDLE\n");
 
         }
-        time++;
+        status = 0;
+       
     }
 }
 
