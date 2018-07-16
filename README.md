@@ -8,5 +8,5 @@ A1 - Simple Unix Shell
 
 A2 - Readers/Writers Problem and Reuseable Barriers
 
-A3 - Round Robin simulation and analysis
+A3 - Round Robin CPU Scheduling Simulation and Analysis
 
