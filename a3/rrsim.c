@@ -41,7 +41,8 @@ void print_task_complete(taskval_t *t, void *arg) {
 
 
 void dispatch_task(int dlen) {
-    for (int i=0; i<dlen; i++) {
+    int i;
+    for (i=0; i<dlen; i++) {
         print_time();
         printf("DISPATCHING\n");
     }
@@ -55,7 +56,8 @@ int run_task(taskval_t *t, int qlen) {
 
     int complete = 0;
 
-    for (int i=0; i<run_time; i++) {
+    int i;
+    for (i=0; i<run_time; i++) {
          t->cpu_used = t->cpu_used +1;
         print_time();
        
