@@ -32,10 +32,10 @@ void print_task(taskval_t *t, void *arg) {
 
 
 void print_task_complete(taskval_t *t, void *arg) {
-    printf("id=%04d EXIT w=%.2f ta= %.2f\n", 
+    printf("id=%04d EXIT w=%.2f ta=%.2f\n", 
         t->id,
-        (t->finish_time - t->arrival_time) * 1.0,
-        (t->finish_time - t->arrival_time) - t->cpu_request // Fix me
+        (t->finish_time - t->arrival_time) - t->cpu_request,
+        (t->finish_time - t->arrival_time) * 1.0
     );
 }
 
@@ -120,6 +120,7 @@ void run_simulation(int qlen, int dlen) {
             if (run_task(current, qlen)) {
                 ready_q = remove_front(ready_q);
                 end_task(current);
+                time = time -1;
                 status = 0;
             // Task used quantum, return in to the back of the queue
             } else {
