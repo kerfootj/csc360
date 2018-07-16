@@ -69,5 +69,3 @@ gnuplot -persist <<-EOFMarker
 	plot $R1 u 1:2 with lp title 'q=50', $R1 u 1:3 with lp title 'q=100', $R1 u 1:4 with lp title 'q=250', $R1 u 1:5 with lp title 'q=500'
 
 EOFMarker
-
-echo "graphs saved to results/"
