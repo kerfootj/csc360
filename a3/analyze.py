@@ -1,7 +1,6 @@
 import re, sys, os
 
-seed = 0
-tasks = 1200
+tasks = float(sys.argv[1])
 
 def print_data(results):
 	
@@ -33,8 +32,8 @@ def print_data(results):
 		row = (row +1) % 6
 		col = col+1 if (row == 0) else col
 
-	wait_time = open('results/wait_time.dat', 'w+')
-	turn_time = open('results/turn_around.dat', 'w+')
+	wait_time = open('results/wait_time.csv', 'w+')
+	turn_time = open('results/turn_around.csv', 'w+')
 
 	wait_time.write('# rrsim wait time data\n')
 	wait_time.write('# ----------------------------------------------\n')
@@ -48,9 +47,14 @@ def print_data(results):
 	for val in data_t:
 		turn_time.write('%d, %.2f, %.2f, %.2f, %.2f\n' % (val[0], val[1], val[2], val[3], val[4]))
 
+	wait_time.close()
+	turn_time.close()
+
+
 def parse_line(line):
 	match = re.findall("\d+\.\d+", line)
 	return match[0], match[1]
+
 
 def main():
 
@@ -68,7 +72,7 @@ def main():
 					wait_avg += float(wait)
 					turn_avg += float(turn)
 
-			#close(file_name)
+			file.close()
 
 			wait_avg = wait_avg / tasks
 			turn_avg = turn_avg / tasks
@@ -76,6 +80,7 @@ def main():
 			results.append([wait_avg, turn_avg])
 
 	print_data(results)
+
 
 if __name__ == '__main__':
 	main()
