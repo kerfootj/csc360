@@ -1,10 +1,13 @@
 #!/bin/bash
 
-SEED="1800"
-TASKS="1200"
+TASKS=$1
+SEED=$2
 
 mkdir -p results
 
+echo
+echo "Running simulation with $TASKS Tasks on Seed: $SEED"
+echo 
 echo "quantum 50"
 
 ./simgen $TASKS $SEED | ./rrsim --quantum 50 --dispatch 0 > results/q50_d0.txt
@@ -40,3 +43,31 @@ echo quantum "500"
 ./simgen $TASKS $SEED | ./rrsim --quantum 500 --dispatch 15 > results/q500_d15.txt
 ./simgen $TASKS $SEED | ./rrsim --quantum 500 --dispatch 20 > results/q500_d20.txt
 ./simgen $TASKS $SEED | ./rrsim --quantum 500 --dispatch 25 > results/q500_d25.txt
+
+echo "analyzing results"
+
+python3 analyze.py $TASKS
+
+# https://askubuntu.com/questions/701986/how-to-execute-commands-in-gnuplot-using-shell-script
+# https://alvinalexander.com/technology/gnuplot-charts-graphs-examples
+
+R1="'results/wait_time.csv'" 
+R2="'results/turn_around.csv'"
+gnuplot -persist <<-EOFMarker
+	
+	set terminal pdf
+	set output 'results/graph_waiting.pdf'
+
+	set title "Round Robin Scheduler- #Tasks: $TASKS, Seed: $SEED" font "Courier Bold,12"
+	set xlabel "Dispatch Overhead (ticks)"
+	set ylabel "Average Waiting Time (ticks)"
+	
+	plot $R1 u 1:2 with lp title 'q=50', $R1 u 1:3 with lp title 'q=100', $R1 u 1:4 with lp title 'q=250', $R1 u 1:5 with lp title 'q=500'  
+
+	set output 'results/graph_turnaround.pdf'
+	set ylabel "Average Turn Around Time (ticks)"
+	plot $R1 u 1:2 with lp title 'q=50', $R1 u 1:3 with lp title 'q=100', $R1 u 1:4 with lp title 'q=250', $R1 u 1:5 with lp title 'q=500'
+
+EOFMarker
+
+echo "graphs saved to results/"
