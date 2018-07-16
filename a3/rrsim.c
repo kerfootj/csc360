@@ -82,8 +82,6 @@ void run_simulation(int qlen, int dlen) {
     
     int status = 0;
 
-    apply(event_list, print_task, NULL);
-
     for (;;) {
 
         incoming = peek_front(event_list);
