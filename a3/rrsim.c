@@ -35,7 +35,7 @@ void print_task_complete(taskval_t *t, void *arg) {
     printf("id=%04d EXIT w=%.2f ta= %.2f\n", 
         t->id,
         (t->finish_time - t->arrival_time) * 1.0,
-        t->finish_time - t->arrival_time - t->cpu_request // Fix me
+        (t->finish_time - t->arrival_time) - t->cpu_request // Fix me
     );
 }
 
@@ -78,45 +78,60 @@ void run_simulation(int qlen, int dlen) {
     taskval_t *ready_q = NULL;
     taskval_t *incoming = NULL;
     taskval_t *current = NULL;
+    taskval_t *temp = NULL;
     
     int status = 0;
 
-    while (1) {
+    apply(event_list, print_task, NULL);
 
-        if (peek_front(event_list) == NULL && peek_front(ready_q) == NULL) {
-            break;
-        }
+    for (;;) {
 
         incoming = peek_front(event_list);
+        current = peek_front(ready_q);
+
+        // All tasks arrived and completed
+        if (incoming == NULL && current == NULL && status == 0) {
+           break;
+        }
 
         if (incoming != NULL) {
             // Task arrived
-            if (incoming->arrival_time >= time) {
-                ready_q = add_end(ready_q, incoming);
+            if (incoming->arrival_time <= time) {
+                temp = new_task();
+                
+                temp->id = incoming->id;
+                temp->arrival_time = incoming->arrival_time;
+                temp->finish_time = 0;
+                temp->cpu_request = incoming->cpu_request;
+                temp->cpu_used = 0;
+                temp->next = incoming->next;
+                
+                ready_q = add_end(ready_q, temp);
                 event_list = remove_front(event_list);
             }
-        } else {
-            printf("EVENTS CLEARED\n");
         }
        
         current = peek_front(ready_q);
 
+        // Dispatch task if avalibe
         if (current != NULL) {
             dispatch_task(dlen);
+            // Task completed, end the task
             if (run_task(current, qlen)) {
                 ready_q = remove_front(ready_q);
                 end_task(current);
+                status = 0;
+            // Task used quantum, return in to the back of the queue
+            } else {
+                ready_q = remove_front(ready_q);
+                ready_q = add_end(ready_q, current);
+                status = 1;
             }
-            status = 1;
-        }
-
-        if (status == 0 ) {
+        // CPU was idle
+        } else {
             print_time();
             printf("IDLE\n");
-
         }
-        status = 0;
-       
     }
 }
 
