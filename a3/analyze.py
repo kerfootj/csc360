@@ -32,23 +32,26 @@ def print_data(results):
 		row = (row +1) % 6
 		col = col+1 if (row == 0) else col
 
-	wait_time = open('results/wait_time.csv', 'w+')
-	turn_time = open('results/turn_around.csv', 'w+')
+	try:
+		wait_time = open('results/wait_time.csv', 'w+')
+		turn_time = open('results/turn_around.csv', 'w+')
 
-	wait_time.write('# rrsim wait time data\n')
-	wait_time.write('# ----------------------------------------------\n')
+		wait_time.write('# rrsim wait time data\n')
+		wait_time.write('# ----------------------------------------------\n')
 
-	turn_time.write('# rrsim turn around time data\n')
-	turn_time.write('# ----------------------------------------------\n')
+		turn_time.write('# rrsim turn around time data\n')
+		turn_time.write('# ----------------------------------------------\n')
 
-	for val in data_w:
-		wait_time.write('%d, %.2f, %.2f, %.2f, %.2f\n' % (val[0], val[1], val[2], val[3], val[4]))
+		for val in data_w:
+			wait_time.write('%d, %.2f, %.2f, %.2f, %.2f\n' % (val[0], val[1], val[2], val[3], val[4]))
 
-	for val in data_t:
-		turn_time.write('%d, %.2f, %.2f, %.2f, %.2f\n' % (val[0], val[1], val[2], val[3], val[4]))
+		for val in data_t:
+			turn_time.write('%d, %.2f, %.2f, %.2f, %.2f\n' % (val[0], val[1], val[2], val[3], val[4]))
 
-	wait_time.close()
-	turn_time.close()
+		wait_time.close()
+		turn_time.close()
+	except:
+		pass
 
 
 def parse_line(line):
@@ -62,22 +65,25 @@ def main():
 	for quantum in [50,100,250,500]:
 		for overhead in [0,5,10,15,20,25]:
 			file_name = 'results/q{}_d{}.txt'.format(quantum, overhead)
-			file = open(file_name, 'r')
+			try:
+				file = open(file_name, 'r')
 
-			wait_avg = 0
-			turn_avg = 0
-			for line in file:
-				if 'EXIT' in line:
-					wait, turn = parse_line(line)
-					wait_avg += float(wait)
-					turn_avg += float(turn)
+				wait_avg = 0
+				turn_avg = 0
+				for line in file:
+					if 'EXIT' in line:
+						wait, turn = parse_line(line)
+						wait_avg += float(wait)
+						turn_avg += float(turn)
 
-			file.close()
+				file.close()
 
-			wait_avg = wait_avg / tasks
-			turn_avg = turn_avg / tasks
+				wait_avg = wait_avg / tasks
+				turn_avg = turn_avg / tasks
 
-			results.append([wait_avg, turn_avg])
+				results.append([wait_avg, turn_avg])
+			except:
+				pass
 
 	print_data(results)
 
