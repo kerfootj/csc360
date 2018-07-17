@@ -169,7 +169,6 @@ void run_simulation(int qlen, int dlen) {
                     temp->next = incoming->next;
                     
                     ready_q = add_end(ready_q, temp);
-                    apply(ready_q, print_task, NULL);
                     event_list = remove_front(event_list);
                 } else {
                     break;
@@ -180,7 +179,6 @@ void run_simulation(int qlen, int dlen) {
         }   
         
         current = peek_front(ready_q);
-        //print_task(current, NULL);
 
         // Dispatch task if avalibe
         if (current != NULL) {
@@ -233,7 +231,6 @@ int main(int argc, char *argv[]) {
             argv[0]);
         exit(1);
     }
-
 
     while(fgets(input_line, MAX_BUFFER_LEN, stdin)) {
         sscanf(input_line, "%d %d %f", &task_num, &task_arrival, &task_cpu);
