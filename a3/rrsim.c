@@ -34,8 +34,6 @@ void increment_count(taskval_t *t, void *arg) {
  * --------------------
  * prints the current time
  * must be called every tick as print_time is the only place time is incrimented
- *
- * *t       : the task that was completed
  */
 void print_time() {
     printf("[%04d] ", time);
