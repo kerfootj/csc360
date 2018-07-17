@@ -5,7 +5,7 @@
 CC=gcc
 CFLAGS=-c -Wall -g -DDEBUG
 
-all: rrsim fcfssim simgen testlist
+all: rrsim fcfssim sjfsim simgen testlist
 
 simgen: simgen.o
 	$(CC) simgen.o -o simgen
@@ -25,6 +25,12 @@ fcfssim: fcfssim.o linkedlist.o
 fcfssim.o: fcfssim.c linkedlist.h
 	$(CC) $(CFLAGS) fcfssim.c
 
+sjfsim: sjfsim.o linkedlist.o
+	$(CC) sjfsim.o linkedlist.o -o sjfsim
+
+sjfsim.o: sjfsim.c linkedlist.h
+	$(CC) $(CFLAGS) sjfsim.c
+
 testlist: testlist.o linkedlist.o
 	$(CC) testlist.o linkedlist.o -o testlist
 
@@ -35,4 +41,4 @@ linkedlist.o: linkedlist.c linkedlist.h
 	$(CC) $(CFLAGS) linkedlist.c
 
 clean:
-	rm -rf *.o rrsim fcfssim simgen testlist
+	rm -rf *.o rrsim fcfssim sjfsim simgen testlist
