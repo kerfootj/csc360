@@ -157,7 +157,6 @@ void run_simulation(int qlen, int dlen) {
         }
         
         current = peek_front(ready_q);
-        //print_task(current, NULL);
 
         // Dispatch task if avalibe
         if (current != NULL) {
