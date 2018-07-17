@@ -142,11 +142,10 @@ void run_simulation(int qlen, int dlen) {
     taskval_t *current = NULL;
     taskval_t *temp = NULL;
     
-    int status = 0;
+    int status = 1;
 
     for (;;) {
-
-        incoming = peek_front(event_list);
+        
         current = peek_front(ready_q);
 
         // All tasks arrived and completed
@@ -154,25 +153,34 @@ void run_simulation(int qlen, int dlen) {
            break;
         }
 
-        if (incoming != NULL) {
-            // Task arrived
-            if (incoming->arrival_time <= time) {
-                // Create new task and add to ready queue
-                temp = new_task();
-                
-                temp->id = incoming->id;
-                temp->arrival_time = incoming->arrival_time;
-                temp->finish_time = 0;
-                temp->cpu_request = incoming->cpu_request;
-                temp->cpu_used = 0;
-                temp->next = incoming->next;
-                
-                ready_q = add_end(ready_q, temp);
-                event_list = remove_front(event_list);
+        for (;;) {
+            incoming = peek_front(event_list);
+            if (incoming != NULL) {
+                // Task arrived
+                if (incoming->arrival_time <= time) {
+                    // Create new task and add to ready queue
+                    temp = new_task();
+
+                    temp->id = incoming->id;
+                    temp->arrival_time = incoming->arrival_time;
+                    temp->finish_time = 0;
+                    temp->cpu_request = incoming->cpu_request;
+                    temp->cpu_used = 0;
+                    temp->next = incoming->next;
+                    
+                    ready_q = add_end(ready_q, temp);
+                    apply(ready_q, print_task, NULL);
+                    event_list = remove_front(event_list);
+                } else {
+                    break;
+                }
+            } else {
+                break;
             }
-        }
-       
+        }   
+        
         current = peek_front(ready_q);
+        //print_task(current, NULL);
 
         // Dispatch task if avalibe
         if (current != NULL) {
@@ -181,7 +189,8 @@ void run_simulation(int qlen, int dlen) {
             if (run_task(current, qlen)) {
                 ready_q = remove_front(ready_q);
                 end_task(current);
-                time = time -1;
+                if (ready_q != NULL)
+                    time = time -1;
                 status = 0;
             // Task used quantum, return in to the back of the queue
             } else {
