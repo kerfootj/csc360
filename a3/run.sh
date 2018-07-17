@@ -4,6 +4,7 @@ TASKS=$1
 SEED=$2
 
 mkdir -p results
+mkdir -p graphs
 
 echo
 echo "Running simulation with $TASKS Tasks on Seed: $SEED"
@@ -56,16 +57,18 @@ R2="'results/turn_around.csv'"
 gnuplot -persist <<-EOFMarker
 	
 	set terminal pdf
-	set output 'results/graph_waiting.pdf'
+	set output 'graphs/graph_waiting.pdf'
 
 	set title "Round Robin Scheduler- #Tasks: $TASKS, Seed: $SEED" font "Courier Bold,12"
-	set xlabel "Dispatch Overhead (ticks)"
-	set ylabel "Average Waiting Time (ticks)"
+	set xlabel "Dispatch Overhead (ticks)" font "Courier Bold,"
+	set ylabel "Average Waiting Time (ticks)" font "Courier Bold,"
 	
 	plot $R1 u 1:2 with lp title 'q=50', $R1 u 1:3 with lp title 'q=100', $R1 u 1:4 with lp title 'q=250', $R1 u 1:5 with lp title 'q=500'  
 
-	set output 'results/graph_turnaround.pdf'
-	set ylabel "Average Turn Around Time (ticks)"
+	set output 'graphs/graph_turnaround.pdf'
+	set ylabel "Average Turn Around Time (ticks)" font "Courier Bold,"
 	plot $R1 u 1:2 with lp title 'q=50', $R1 u 1:3 with lp title 'q=100', $R1 u 1:4 with lp title 'q=250', $R1 u 1:5 with lp title 'q=500'
 
 EOFMarker
+
+rm -r results
