@@ -1,0 +1,29 @@
+lsuvfs output for disk3.img
+
+     159 2018-Jul-17 09:36:44 alphabet_short.txt
+      93 2018-Jul-17 09:36:44 digits_short.txt
+
+===================================================================
+
+lsuvfs output for disk4.img
+
+     159 2018-Jul-17 09:37:15 alphabet_short.txt
+    6784 2018-Jul-17 09:37:15 alphabet.txt
+      93 2018-Jul-17 09:37:15 digits_short.txt
+   18228 2018-Jul-17 09:37:16 digits.txt
+
+===================================================================
+
+lsuvfs output for disk5.img
+
+     700 2018-Jul-17 10:01:55 sonnet116.txt
+   50138 2018-Jul-17 10:01:55 graphic01.jpg
+    1079 2018-Jul-17 10:01:55 donne.txt
+   54960 2018-Jul-17 10:01:55 graphic02.jpg
+     738 2018-Jul-17 10:01:55 sonnet023.txt
+  103468 2018-Jul-17 10:01:55 macbeth.txt
+   56997 2018-Jul-17 10:01:55 graphic04.jpg
+  123619 2018-Jul-17 10:01:55 loves_labours_lost.txt
+   61707 2018-Jul-17 10:01:55 graphic03.jpg
+  314159 2018-Jul-17 10:01:55 random01.bin
+     741 2018-Jul-17 10:01:55 sonnet018.txt
