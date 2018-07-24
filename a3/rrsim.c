@@ -141,6 +141,7 @@ void run_simulation(int qlen, int dlen) {
     taskval_t *incoming = NULL;
     taskval_t *current = NULL;
     taskval_t *temp = NULL;
+    taskval_t *used = NULL;
     
     int status = 1;
 
@@ -176,7 +177,12 @@ void run_simulation(int qlen, int dlen) {
             } else {
                 break;
             }
-        }   
+        }
+
+        if (used != NULL) {
+            ready_q = add_end(ready_q, used);
+            used = NULL;
+        }
         
         current = peek_front(ready_q);
 
@@ -190,10 +196,10 @@ void run_simulation(int qlen, int dlen) {
                 if (ready_q != NULL)
                     time = time -1;
                 status = 0;
-            // Task used quantum, return in to the back of the queue
+            // Task used quantum
             } else {
                 ready_q = remove_front(ready_q);
-                ready_q = add_end(ready_q, current);
+                used = current;
                 status = 1;
             }
         // CPU was idle
