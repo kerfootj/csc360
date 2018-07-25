@@ -61,5 +61,47 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
+    // Open binary
+    f = fopen(imagename, "r");
+    fseek(f, 0, SEEK_SET);
+    fread(&sb, sizeof(sb), 1, f);
+
+     // Big endian
+    sb.block_size = htons(sb.block_size);
+    sb.num_blocks = htonl(sb.num_blocks);
+    sb.fat_start = htonl(sb.fat_start);
+    sb.fat_blocks = htonl(sb.fat_blocks);
+    sb.dir_start = htonl(sb.dir_start);
+    sb.dir_blocks = htonl(sb.dir_blocks);
+
+    // Start at beginning of root directory
+    fseek(f, sb.dir_start * sb.block_size, SEEK_SET);
+
+    int num_enteries = sb.dir_blocks * (sb.block_size / SIZE_DIR_ENTRY);
+    directory_entry_t dir;
+
+    for (i=0; i<num_enteries; i++) {
+        fread(&dir, sizeof(directory_entry_t), 1, f);
+
+        dir.start_block = htonl(dir.start_block);
+        dir.num_blocks = htonl(dir.num_blocks);
+        dir.file_size = htonl(dir.file_size);
+
+        if (dir.status != DIR_ENTRY_AVAILABLE) {
+            short year, month, day, hour, min, sec;
+            unpack_datetime(dir.create_time, &year, &month, &day, &hour, &min, &sec);
+
+            printf("%8d %4d-%s-%d %d:%d:%d %s\n", 
+                dir.file_size,
+                year,
+                month_to_string(month),
+                day,
+                hour,
+                min,
+                sec,
+                dir.filename);
+        }
+    }
+
     return 0; 
 }
