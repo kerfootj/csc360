@@ -58,23 +58,23 @@ int main(int argc, char *argv[]) {
         sb.dir_start,
         sb.dir_blocks);
 
-     printf("-------------------------------------------------\n");
+    printf("-------------------------------------------------\n");
 
-     int free = 0;
-     int resv = 0;
-     int aloc = 0;
+	int free = 0;
+	int resv = 0;
+	int aloc = 0;
 
-     fseek(f, sb.fat_start * sb.block_size, SEEK_SET);
-     	for (i=0; i<sb.num_blocks; i++) {
-     		fread(&fat_data, 4, 1, f);
-     		fat_data = htonl(fat_data);
-     		if (fat_data == FAT_AVAILABLE)
-     			free++;
-     		else if (fat_data == FAT_RESERVED)
-     			resv++;
-     		else
-     			aloc++;
-     	}
+    fseek(f, sb.fat_start * sb.block_size, SEEK_SET);
+ 	for (i=0; i<sb.num_blocks; i++) {
+ 		fread(&fat_data, SIZE_FAT_ENTRY, 1, f);
+ 		fat_data = htonl(fat_data);
+ 		if (fat_data == FAT_AVAILABLE)
+ 			free++;
+ 		else if (fat_data == FAT_RESERVED)
+ 			resv++;
+ 		else
+ 			aloc++;
+ 	}
 
     printf("%5s %6s %6s\n", heading[6], heading[7], heading[8]);
     printf("%5d %6d %6d\n\n", free, resv, aloc);

@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
     fseek(f, 0, SEEK_SET);
     fread(&sb, sizeof(sb), 1, f);
 
-     // Big endian
+    // Big endian
     sb.block_size = htons(sb.block_size);
     sb.num_blocks = htonl(sb.num_blocks);
     sb.fat_start = htonl(sb.fat_start);
