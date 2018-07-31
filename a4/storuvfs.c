@@ -79,5 +79,124 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
+    // Open binary
+    f = fopen(imagename, "r+");
+    fseek(f, 0, SEEK_SET);
+    fread(&sb, sizeof(sb), 1, f);
+
+    // Big endian
+    sb.block_size = htons(sb.block_size);
+    sb.num_blocks = htonl(sb.num_blocks);
+    sb.fat_start = htonl(sb.fat_start);
+    sb.fat_blocks = htonl(sb.fat_blocks);
+    sb.dir_start = htonl(sb.dir_start);
+    sb.dir_blocks = htonl(sb.dir_blocks);
+
+    // Start at beginning of root directory
+    fseek(f, sb.dir_start * sb.block_size, SEEK_SET);
+
+    int num_enteries = sb.dir_blocks * (sb.block_size / SIZE_DIR_ENTRY);
+    directory_entry_t dir;
+
+    int found = 0;
+
+    // Check if filename already exists
+    for (i=0; i<num_enteries; i++) {
+        fread(&dir, sizeof(directory_entry_t), 1, f);
+        if (dir.status != DIR_ENTRY_AVAILABLE) {
+            if (strncmp(dir.filename, filename, strlen(filename) +1) == 0) {
+                found = 1;
+                break;
+            }
+        }
+    }
+
+    if (found) {
+        printf("file already exists in the image\n");
+        exit(1);
+    }
+
+    // Check that space is avalible
+    FILE *s;
+
+    s = fopen(sourcename, "r");
+    fseek(s, 0, SEEK_END);
+    int size_required = ftell(s);
+
+    int free = 0;
+    int fat_data;
+
+    fseek(f, sb.fat_start * sb.block_size, SEEK_SET);
+    for (i=0; i<sb.num_blocks; i++) {
+        fread(&fat_data, SIZE_FAT_ENTRY, 1, f);
+        fat_data = htonl(fat_data);
+        if (fat_data == FAT_AVAILABLE) {
+            free++;
+        }
+    }
+
+    if (free * sb.block_size < size_required) {
+        printf("not enough space in image for file\n");
+        exit(1);
+    }
+
+    int to_write = size_required;
+    int reads = 0;
+    int pre_block, cur_block;
+    char buffer[2*sb.block_size];
+
+    // file = f source = s
+    fseek(f, htonl((sb.fat_start * sb.block_size) + (SIZE_FAT_ENTRY * cur_block)), SEEK_SET);
+    fread(&cur_block, SIZE_FAT_ENTRY, 1, f);
+
+    fseek(s, 0, SEEK_SET);
+
+    cur_block = next_free_block(&sb.fat_start, sb.fat_blocks);
+    dir.start_block = cur_block;
+
+    for (;;) {
+
+        if (to_write < 0) {
+            cur_block = FAT_LASTBLOCK;
+            fwrite(&cur_block, SIZE_FAT_ENTRY, 1, f);
+            break;
+        }
+
+        // Read source
+        fseek(s, (reads++ * sb.block_size), SEEK_SET);
+        fread(&buffer, sb.block_size, 1, s);
+
+        // Write to image
+        fseek(f, cur_block * sb.block_size, SEEK_SET);
+        fwrite(&buffer, sb.block_size, 1, f);        
+
+        // Update FAT
+        to_write = to_write - sb.block_size;
+
+        pre_block = cur_block;
+        cur_block = next_free_block(&sb.fat_start, sb.fat_blocks);
+
+        fseek(f, (sb.fat_start * sb.block_size) + (SIZE_FAT_ENTRY * pre_block), SEEK_SET);
+        fwrite(&cur_block, SIZE_FAT_ENTRY, 1, f);
+    }
+
+    // Update directory 
+    dir.status = DIR_ENTRY_NORMALFILE;
+    dir.num_blocks = reads + 1;
+    dir.file_size = size_required;
+    pack_current_datetime(dir.create_time);
+    pack_current_datetime(dir.modify_time);
+    strcpy(dir.filename, filename);
+
+    fseek(f, sb.dir_start * sb.block_size, SEEK_SET);
+    directory_entry_t tmp;
+    for (i=0; i<num_enteries; i++) {
+        fread(&tmp, sizeof(directory_entry_t), 1, f);
+        if (tmp.status == DIR_ENTRY_AVAILABLE) {
+            fseek(f, sb.dir_start + (i*sizeof(directory_entry_t)), SEEK_SET);
+            fwrite(&dir, sizeof(directory_entry_t), 1, f);
+        }
+    }
+    
     return 0; 
 }
