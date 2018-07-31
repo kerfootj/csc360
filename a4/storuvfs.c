@@ -51,6 +51,58 @@ int next_free_block(int *FAT, int max_blocks) {
 }
 
 
+int check_file(char *filename, int num_enteries, FILE *f, directory_entry_t dir) {
+    int i;
+    for (i=0; i<num_enteries; i++) {
+        fread(&dir, sizeof(directory_entry_t), 1, f);
+        if (dir.status != DIR_ENTRY_AVAILABLE) {
+            if (strncmp(dir.filename, filename, strlen(filename) +1) == 0) {
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+
+int check_space(FILE *f, superblock_entry_t sb) {
+    int i;
+    int free = 0;
+    int fat_data;
+    fseek(f, sb.fat_start * sb.block_size, SEEK_SET);
+
+    for (i=0; i<sb.num_blocks; i++) {
+        fread(&fat_data, SIZE_FAT_ENTRY, 1, f);
+        fat_data = htonl(fat_data);
+        if (fat_data == FAT_AVAILABLE) {
+            free++;
+        }
+    }
+    return free * sb.block_size;
+}
+
+
+int get_free_block(FILE *f, superblock_entry_t sb, int  skip) {
+    int i;
+    int next = 1;
+    int fat_data;
+    fseek(f, sb.fat_start * sb.block_size, SEEK_SET);
+
+    for (i=0; i<sb.num_blocks; i++) {
+        fread(&fat_data, SIZE_FAT_ENTRY, 1, f);
+        fat_data = htonl(fat_data);
+        if (fat_data == FAT_AVAILABLE) {
+            if (skip && next) {
+                next = 0;
+            } else {
+                return i;
+            }
+        }
+    }
+    return -1;
+}
+
+
 int main(int argc, char *argv[]) {
     superblock_entry_t sb;
     int  i;
@@ -58,6 +110,7 @@ int main(int argc, char *argv[]) {
     char *filename   = NULL;
     char *sourcename = NULL;
     FILE *f;
+    FILE *s;
 
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--image") == 0 && i+1 < argc) {
@@ -98,18 +151,8 @@ int main(int argc, char *argv[]) {
     int num_enteries = sb.dir_blocks * (sb.block_size / SIZE_DIR_ENTRY);
     directory_entry_t dir;
 
-    int found = 0;
-
     // Check if filename already exists
-    for (i=0; i<num_enteries; i++) {
-        fread(&dir, sizeof(directory_entry_t), 1, f);
-        if (dir.status != DIR_ENTRY_AVAILABLE) {
-            if (strncmp(dir.filename, filename, strlen(filename) +1) == 0) {
-                found = 1;
-                break;
-            }
-        }
-    }
+    int found = check_file(filename, num_enteries, f, dir);
 
     if (found) {
         printf("file already exists in the image\n");
@@ -117,33 +160,21 @@ int main(int argc, char *argv[]) {
     }
 
     // Check that space is avalible
-    FILE *s;
-
     s = fopen(sourcename, "r");
     fseek(s, 0, SEEK_END);
     int size_required = ftell(s);
 
-    int free = 0;
-    int fat_data;
+    int free = check_space(f, sb);    
 
-    fseek(f, sb.fat_start * sb.block_size, SEEK_SET);
-    for (i=0; i<sb.num_blocks; i++) {
-        fread(&fat_data, SIZE_FAT_ENTRY, 1, f);
-        fat_data = htonl(fat_data);
-        if (fat_data == FAT_AVAILABLE) {
-            free++;
-        }
-    }
-
-    if (free * sb.block_size < size_required) {
+    if (free < size_required) {
         printf("not enough space in image for file\n");
         exit(1);
     }
 
     int to_write = size_required;
     int reads = 0;
-    int pre_block, cur_block;
-    char buffer[2*sb.block_size];
+    int tmp_block; int cur_block;
+    char buffer[sb.block_size];
 
     // file = f source = s
     fseek(f, htonl((sb.fat_start * sb.block_size) + (SIZE_FAT_ENTRY * cur_block)), SEEK_SET);
@@ -151,33 +182,36 @@ int main(int argc, char *argv[]) {
 
     fseek(s, 0, SEEK_SET);
 
-    cur_block = next_free_block(&sb.fat_start, sb.fat_blocks);
+    cur_block = get_free_block(f, sb, 0);
     dir.start_block = cur_block;
+    printf("Start writing: %d\n", cur_block);
 
     for (;;) {
-
-        if (to_write < 0) {
-            cur_block = FAT_LASTBLOCK;
-            fwrite(&cur_block, SIZE_FAT_ENTRY, 1, f);
-            break;
-        }
 
         // Read source
         fseek(s, (reads++ * sb.block_size), SEEK_SET);
         fread(&buffer, sb.block_size, 1, s);
 
         // Write to image
-        fseek(f, cur_block * sb.block_size, SEEK_SET);
-        fwrite(&buffer, sb.block_size, 1, f);        
+        fseek(f, (cur_block * sb.block_size), SEEK_SET);
+        fwrite(&buffer, sb.block_size, 1, f);
 
-        // Update FAT
+        // What's left to write
         to_write = to_write - sb.block_size;
 
-        pre_block = cur_block;
-        cur_block = next_free_block(&sb.fat_start, sb.fat_blocks);
+        fseek(f, ((sb.fat_start * sb.block_size) + (cur_block * SIZE_FAT_ENTRY)), SEEK_SET);
 
-        fseek(f, (sb.fat_start * sb.block_size) + (SIZE_FAT_ENTRY * pre_block), SEEK_SET);
-        fwrite(&cur_block, SIZE_FAT_ENTRY, 1, f);
+        // Done writing file
+        if (to_write < 0) {
+            tmp_block = FAT_LASTBLOCK;
+            fwrite(&tmp_block, sizeof(unsigned int), 1, f);
+            break;
+        } else {
+            tmp_block = ntohl(cur_block);
+            fwrite(&tmp_block, sizeof(unsigned int), 1, f);
+            cur_block = get_free_block(f, sb, 0);
+            printf("Next: %d\n", cur_block);
+        }
     }
 
     // Update directory 
@@ -188,15 +222,16 @@ int main(int argc, char *argv[]) {
     pack_current_datetime(dir.modify_time);
     strcpy(dir.filename, filename);
 
-    fseek(f, sb.dir_start * sb.block_size, SEEK_SET);
-    directory_entry_t tmp;
-    for (i=0; i<num_enteries; i++) {
-        fread(&tmp, sizeof(directory_entry_t), 1, f);
-        if (tmp.status == DIR_ENTRY_AVAILABLE) {
-            fseek(f, sb.dir_start + (i*sizeof(directory_entry_t)), SEEK_SET);
-            fwrite(&dir, sizeof(directory_entry_t), 1, f);
-        }
-    }
+
+    // fseek(f, sb.dir_start * sb.block_size, SEEK_SET);
+    // directory_entry_t tmp;
+    // for (i=0; i<num_enteries; i++) {
+    //     fread(&tmp, sizeof(directory_entry_t), 1, f);
+    //     if (tmp.status == DIR_ENTRY_AVAILABLE) {
+    //         fseek(f, sb.dir_start + (i*sizeof(directory_entry_t)), SEEK_SET);
+    //         fwrite(&dir, sizeof(directory_entry_t), 1, f);
+    //     }
+    // }
     
     return 0; 
 }
