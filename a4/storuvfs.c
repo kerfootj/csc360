@@ -36,21 +36,6 @@ void pack_current_datetime(unsigned char *entry) {
 }
 
 
-int next_free_block(int *FAT, int max_blocks) {
-    assert(FAT != NULL);
-
-    int i;
-
-    for (i = 0; i < max_blocks; i++) {
-        if (FAT[i] == FAT_AVAILABLE) {
-            return i;
-        }
-    }
-
-    return -1;
-}
-
-
 int check_file(char *filename, int num_enteries, FILE *f, directory_entry_t dir) {
     int i;
     for (i=0; i<num_enteries; i++) {
@@ -100,6 +85,52 @@ int get_free_block(FILE *f, superblock_entry_t sb, int  skip) {
         }
     }
     return -1;
+}
+
+
+int write_data(FILE *f, FILE *s, superblock_entry_t sb, directory_entry_t dir, int size) {
+    
+    int to_write = size;
+    int reads = 0;
+    int tmp_block; int cur_block; int nxt_block;
+    char buffer[sb.block_size];
+
+    fseek(s, 0, SEEK_SET);
+
+    cur_block = get_free_block(f, sb, 0);
+    nxt_block = get_free_block(f, sb, 1);
+
+    for (;;) {
+
+        // Clear buffer
+        memset(buffer, 0, sizeof(buffer));
+
+        // Read source
+        fseek(s, (reads++ * sb.block_size), SEEK_SET);
+        fread(&buffer, sb.block_size, 1, s);
+
+        // Write to image
+        fseek(f, (cur_block * sb.block_size), SEEK_SET);
+        fwrite(&buffer, sb.block_size, 1, f);
+
+        // What's left to write
+        to_write = to_write - sb.block_size;
+
+        fseek(f, ((sb.fat_start * sb.block_size) + (cur_block * SIZE_FAT_ENTRY)), SEEK_SET);
+
+        // Done writing file
+        if (to_write < 0) {
+            tmp_block = FAT_LASTBLOCK;
+            fwrite(&tmp_block, sizeof(unsigned int), 1, f);
+            break;
+        } else {
+            tmp_block = ntohl(nxt_block);
+            fwrite(&tmp_block, sizeof(unsigned int), 1, f);
+            cur_block = nxt_block; 
+            nxt_block = get_free_block(f, sb, 1);
+        }
+    }
+    return reads;
 }
 
 
@@ -167,71 +198,47 @@ int main(int argc, char *argv[]) {
     int free = check_space(f, sb);    
 
     if (free < size_required) {
-        printf("not enough space in image for file\n");
+        printf("not enough space on image for file\n");
         exit(1);
     }
 
-    int to_write = size_required;
-    int reads = 0;
-    int tmp_block; int cur_block;
-    char buffer[sb.block_size];
-
-    // file = f source = s
-    fseek(f, htonl((sb.fat_start * sb.block_size) + (SIZE_FAT_ENTRY * cur_block)), SEEK_SET);
-    fread(&cur_block, SIZE_FAT_ENTRY, 1, f);
-
-    fseek(s, 0, SEEK_SET);
-
-    cur_block = get_free_block(f, sb, 0);
-    dir.start_block = cur_block;
-    printf("Start writing: %d\n", cur_block);
-
-    for (;;) {
-
-        // Read source
-        fseek(s, (reads++ * sb.block_size), SEEK_SET);
-        fread(&buffer, sb.block_size, 1, s);
-
-        // Write to image
-        fseek(f, (cur_block * sb.block_size), SEEK_SET);
-        fwrite(&buffer, sb.block_size, 1, f);
-
-        // What's left to write
-        to_write = to_write - sb.block_size;
-
-        fseek(f, ((sb.fat_start * sb.block_size) + (cur_block * SIZE_FAT_ENTRY)), SEEK_SET);
-
-        // Done writing file
-        if (to_write < 0) {
-            tmp_block = FAT_LASTBLOCK;
-            fwrite(&tmp_block, sizeof(unsigned int), 1, f);
-            break;
-        } else {
-            tmp_block = ntohl(cur_block);
-            fwrite(&tmp_block, sizeof(unsigned int), 1, f);
-            cur_block = get_free_block(f, sb, 0);
-            printf("Next: %d\n", cur_block);
-        }
+    // Write to data blocks
+    int start = get_free_block(f, sb, 0);
+    int reads = write_data(f, s, sb, dir, size_required);
+    
+    // Messy but all variables needed to complete a dir_entry
+    // More elegant solutions were being packed weird in the image file
+    char status = 0x1;
+    dir.start_block = ntohl(start);
+    unsigned int num_blocks = ntohl(reads);
+    unsigned int file_size = ntohl(size_required);
+    unsigned char create_time[DIR_TIME_WIDTH];
+    pack_current_datetime(create_time);
+    unsigned char modify_time[DIR_TIME_WIDTH];
+    pack_current_datetime(modify_time);
+    strcpy(dir.filename, filename);
+    unsigned char padding[6];
+     for (i=0; i<6; i++) {
+        padding[i] = 0xff;
     }
 
-    // Update directory 
-    dir.status = DIR_ENTRY_NORMALFILE;
-    dir.num_blocks = reads + 1;
-    dir.file_size = size_required;
-    pack_current_datetime(dir.create_time);
-    pack_current_datetime(dir.modify_time);
-    strcpy(dir.filename, filename);
+    fseek(f, sb.dir_start * sb.block_size, SEEK_SET);
+    directory_entry_t tmp;
 
-
-    // fseek(f, sb.dir_start * sb.block_size, SEEK_SET);
-    // directory_entry_t tmp;
-    // for (i=0; i<num_enteries; i++) {
-    //     fread(&tmp, sizeof(directory_entry_t), 1, f);
-    //     if (tmp.status == DIR_ENTRY_AVAILABLE) {
-    //         fseek(f, sb.dir_start + (i*sizeof(directory_entry_t)), SEEK_SET);
-    //         fwrite(&dir, sizeof(directory_entry_t), 1, f);
-    //     }
-    // }
-    
+    for (i=0; i<num_enteries; i++) {
+        fread(&tmp, sizeof(directory_entry_t), 1, f);
+        if (tmp.status == DIR_ENTRY_AVAILABLE) {
+            fseek(f, (sb.dir_start * sb.block_size) + (i*sizeof(directory_entry_t)), SEEK_SET);
+            fwrite(&status, 1, 1, f);
+            fwrite(&dir.start_block, 4, 1, f);
+            fwrite(&num_blocks, 4, 1, f);
+            fwrite(&file_size, 4, 1, f);
+            fwrite(&create_time, 7, 1, f);
+            fwrite(&modify_time, 7, 1, f);
+            fwrite(&dir.filename, 31, 1, f);
+            fwrite(&padding, 6, 1, f);
+            break;
+        }
+    }    
     return 0; 
 }
