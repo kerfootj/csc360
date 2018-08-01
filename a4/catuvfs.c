@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
 
     if (imagename == NULL || filename == NULL) {
         fprintf(stderr, "usage: catuvfs --image <imagename> " \
-            "--file <filename in image>");
+            "--file <filename in image>\n");
         exit(1);
     }
 
