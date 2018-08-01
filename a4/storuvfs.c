@@ -206,8 +206,8 @@ int main(int argc, char *argv[]) {
     int start = get_free_block(f, sb, 0);
     int reads = write_data(f, s, sb, dir, size_required);
     
-    // Messy but all variables needed to complete a dir_entry
-    // More elegant solutions were being packed weird in the image file
+    // Messy solution but I found more reliable than trying to write a directory_entry_t
+    // When fwrite(&dir, SIZE_DIR_ENTRY, 1, f); data was packed weird on the image file
     char status = 0x1;
     dir.start_block = ntohl(start);
     unsigned int num_blocks = ntohl(reads);
